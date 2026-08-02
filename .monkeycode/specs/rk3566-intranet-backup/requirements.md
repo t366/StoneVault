@@ -1,4 +1,4 @@
-# 需求文档：RK3566 智能内网备份中枢
+# 需求文档：StoneVault（磐石 Vault）智能内网备份中枢
 
 ## Introduction
 

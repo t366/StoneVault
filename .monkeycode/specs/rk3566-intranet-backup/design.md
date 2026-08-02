@@ -1,4 +1,4 @@
-# 设计文档：RK3566 智能内网备份中枢
+# 设计文档：StoneVault（磐石 Vault）智能内网备份中枢
 
 Feature Name: 2026-08-02-rk3566-intranet-backup
 Updated: 2026-08-02

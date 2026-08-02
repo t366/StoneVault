@@ -1,4 +1,4 @@
-# 需求实施计划：RK3566 智能内网备份中枢
+# 需求实施计划：StoneVault（磐石 Vault）智能内网备份中枢
 
 - [ ] 1. 设置项目结构和核心接口
   - 创建后端目录结构：`backup_engine`、`scheduler`、`indexer`、`query_service`、`preview_service`、`transcode_worker`、`ai_indexer`、`wake_manager`、`auth`、`api` 模块
