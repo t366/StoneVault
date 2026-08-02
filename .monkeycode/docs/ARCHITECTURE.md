@@ -42,7 +42,9 @@ project-root/
 │   │   ├── schema.py           # 表结构与版本化 DDL
 │   │   ├── repositories.py     # 数据访问层（各表 CRUD 仓储）
 │   │   ├── server.py           # Sanic 应用入口与健康检查
-│   │   ├── backup_engine/      # 备份引擎（规划）
+│   │   ├── backup_engine/      # 备份引擎（过滤、全量/增量、双写）
+│   │   │   ├── filtering.py    # 后缀/大小过滤规则
+│   │   │   └── engine.py       # 备份执行（HDD 副本 + SSD gzip 缓存）
 │   │   ├── scheduler/          # 任务调度器（规划）
 │   │   ├── indexer/            # 文件索引（规划）
 │   │   ├── query_service/      # 查询服务（规划）
@@ -75,6 +77,13 @@ project-root/
 - `start.sh` - 一键启动前后端
 
 ## 子系统
+
+### 备份引擎
+**目的**: 执行备份任务，按过滤规则扫描源目录，将源文件完整副本写入冷区，压缩副本与索引写入热区；增量模式基于该任务最近快照的 mtime 与 MD5 比较，仅传输变更文件。
+**位置**: `backend/app/backup_engine/`
+**关键文件**: `engine.py`（`BackupEngine.run_task`）、`filtering.py`（`FilterSpec`）
+**依赖**: `repositories.py`、`database.py`、`config.py`
+**被依赖**: 调度器与任务 API（规划）
 
 ### 配置模块
 **目的**: 集中管理热区/冷区路径、服务端口、并发上限与硬盘唤醒参数，支持环境变量覆盖。
@@ -118,4 +127,5 @@ flowchart LR
 - [x] 任务 1：项目结构与核心接口
 - [x] 任务 2：数据库初始化与数据模型（SQLite WAL、7 张核心表、FTS5、仓储层）
 - [x] 任务 3：管理员认证（PBKDF2 密码散列、HMAC 会话令牌、认证中间件）
-- [ ] 任务 4+：备份引擎等（见实施计划 `tasklist.md`）
+- [x] 任务 4：备份引擎（过滤、全量/增量、HDD 完整副本 + SSD gzip 缓存双写、快照）
+- [ ] 任务 5+：任务调度等（见实施计划 `tasklist.md`）
