@@ -1,31 +1,31 @@
 # 需求实施计划：StoneVault（磐石 Vault）智能内网备份中枢
 
-- [ ] 1. 设置项目结构和核心接口
+- [x] 1. 设置项目结构和核心接口
   - 创建后端目录结构：`backup_engine`、`scheduler`、`indexer`、`query_service`、`preview_service`、`transcode_worker`、`ai_indexer`、`wake_manager`、`auth`、`api` 模块
   - 创建 Sanic 应用入口与配置加载（挂载点、存储路径、冷区挂载路径）
   - 创建 Vue3 + Element Plus 前端工程骨架（Vite），配置 `/api` 反向代理到后端
   - 设置 pytest 测试框架与 `tests/` 目录
   - 引用：设计文档 Components 分层、需求 5 非功能（内网部署）
 
-- [ ] 2. 实现数据库初始化与数据模型
-  - [ ] 2.1 实现 SQLite 连接工具与 WAL 模式初始化
+- [x] 2. 实现数据库初始化与数据模型
+  - [x] 2.1 实现 SQLite 连接工具与 WAL 模式初始化
     - 编写连接管理、启用 `PRAGMA journal_mode=WAL`、外键约束
     - 为数据库操作创建错误处理工具
-  - [ ] 2.2 实现全部核心表 DDL 与迁移脚本
+  - [x] 2.2 实现全部核心表 DDL 与迁移脚本
     - 编写 `tasks`、`snapshots`、`file_index`、`metadata`、`admin_user`、`ai_jobs` 建表语句
     - 实现版本化 schema 初始化函数
-  - [ ] 2.3 实现 FTS5 虚拟表 file_fts
-    - 以 contentless 外部内容表模式创建 `file_fts`，`rowid` 关联 `file_index.id`
-  - [ ] 2.4 实现数据访问层（Repository）
+  - [x] 2.3 实现 FTS5 虚拟表 file_fts
+    - 以外部内容表模式（`content='file_index'`）创建 `file_fts`，`rowid` 关联 `file_index.id`，使用 `trigram` 分词器
+  - [x] 2.4 实现数据访问层（Repository）
     - 为每张表编写 CRUD 仓储类
   - [ ]* 2.5 为数据模型与仓储层编写单元测试
     - 验证建表、WAL 模式、FTS5 写入与同步
 
-- [ ] 3. 实现管理员认证（需求 10）
-  - [ ] 3.1 实现密码散列工具
-    - 使用带盐单向散列（bcrypt/argon2）编写 `hash_password` 与 `verify_password`
-  - [ ] 3.2 实现登录/登出/会话校验
-    - 编写 `/api/auth/login`、`/api/auth/logout` 接口与会话令牌签发
+- [x] 3. 实现管理员认证（需求 10）
+  - [x] 3.1 实现密码散列工具
+    - 使用带盐单向散列（PBKDF2-SHA256）编写 `hash_password` 与 `verify_password`
+  - [x] 3.2 实现登录/登出/会话校验
+    - 编写 `/api/auth/login`、`/api/auth/logout` 接口与 HMAC 签名会话令牌签发
     - 编写认证中间件，拦截管理接口返回 401
   - [ ]* 3.3 为认证模块编写单元测试
     - 验证正确/错误凭据、过期会话、密码散列不可逆

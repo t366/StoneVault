@@ -166,6 +166,9 @@ sequenceDiagram
 | ssd_cache_path | TEXT | 热区压缩副本路径 |
 | hdd_source_path | TEXT | 冷区源文件路径 |
 | content_type | TEXT | MIME 类型 |
+| filename | TEXT | 文件名（FTS 内容源） |
+| body | TEXT | 提取的文档正文（FTS 内容源） |
+| ai_text | TEXT | OCR / 语音转写识别文本（FTS 内容源） |
 
 ### file_fts（FTS5 虚拟表）
 
@@ -175,7 +178,7 @@ sequenceDiagram
 | body | 提取的文档正文（Word/PDF/TXT） |
 | ai_text | OCR / 语音转写识别文本 |
 
-`rowid` 关联 `file_index.id`；FTS5 使用 `contentless` 外部内容表模式以节省热区空间。
+`rowid` 关联 `file_index.id`；以外部内容表模式（`content='file_index'`）创建，正文与识别文本存储于 `file_index` 列避免重复占用热区空间；使用 `trigram` 分词器以支持中文子串匹配（查询词建议不少于 3 个字符）。
 
 ### metadata（预留扩展）
 
