@@ -200,12 +200,23 @@ class FileIndexRepository:
             ).fetchall()
             return [dict(r) for r in rows]
 
-    def find_by_rel_path(self, rel_path: str) -> dict[str, Any] | None:
+    def find_by_rel_path(self, rel_path: str, task_id: int | None = None) -> dict[str, Any] | None:
         with self.db.connect() as conn:
-            row = conn.execute(
-                "SELECT * FROM file_index WHERE rel_path = ? ORDER BY id DESC LIMIT 1",
-                (rel_path,),
-            ).fetchone()
+            if task_id is None:
+                row = conn.execute(
+                    "SELECT * FROM file_index WHERE rel_path = ? ORDER BY id DESC LIMIT 1",
+                    (rel_path,),
+                ).fetchone()
+            else:
+                row = conn.execute(
+                    """
+                    SELECT * FROM file_index
+                    WHERE rel_path = ?
+                      AND snapshot_id IN (SELECT id FROM snapshots WHERE task_id = ?)
+                    ORDER BY id DESC LIMIT 1
+                    """,
+                    (rel_path, task_id),
+                ).fetchone()
             return dict(row) if row else None
 
     def update_text(self, file_id: int, *, body: str, ai_text: str) -> None:
