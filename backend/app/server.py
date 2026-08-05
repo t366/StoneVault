@@ -78,7 +78,13 @@ def create_app(
 
 def main() -> None:
     app = create_app()
-    app.run(host=app.config.HOST, port=app.config.PORT, workers=1, access_log=True)
+    app.run(
+        host=app.config.HOST,
+        port=app.config.PORT,
+        workers=1,
+        access_log=True,
+        single_process=True,
+    )
 
 
 if __name__ == "__main__":
