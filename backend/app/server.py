@@ -2,6 +2,7 @@ from sanic import Sanic
 from sanic.response import json
 
 from .api.auth import create_auth_bp
+from .api.download import create_download_bp
 from .api.files import create_files_bp
 from .api.preview import create_preview_bp
 from .api.tasks import create_tasks_bp
@@ -14,6 +15,7 @@ from .database import Database
 from .repositories import AdminUserRepository
 from .scheduler.locks import TaskExecutionManager
 from .scheduler.scheduler import TaskScheduler
+from .wake_manager import WakeController, WakeManager
 
 
 def create_app(
@@ -45,9 +47,16 @@ def create_app(
     engine = BackupEngine(database, cfg)
     manager = TaskExecutionManager(database, cfg.TASK_INTERLEAVE_SECONDS)
     scheduler = TaskScheduler(database, engine, manager, cfg)
+    wake_controller = WakeController(cfg.HDD_MOUNT_PATH)
+    wake_manager = WakeManager(
+        wake_controller,
+        debounce_seconds=cfg.WAKE_DEBOUNCE_SECONDS,
+        timeout_seconds=cfg.WAKE_TIMEOUT_SECONDS,
+    )
     app.ctx.engine = engine
     app.ctx.manager = manager
     app.ctx.scheduler = scheduler
+    app.ctx.wake_manager = wake_manager
 
     @app.get("/api/health")
     async def health(request):
@@ -74,6 +83,7 @@ def create_app(
     )
     app.blueprint(create_files_bp(database))
     app.blueprint(create_preview_bp(database, cfg))
+    app.blueprint(create_download_bp(database, wake_manager))
     register_auth_middleware(app, sessions)
     return app
 

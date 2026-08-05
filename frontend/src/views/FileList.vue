@@ -67,9 +67,10 @@
       <el-table-column prop="content_type" label="类型" min-width="140">
         <template #default="{ row }">{{ row.content_type || '—' }}</template>
       </el-table-column>
-      <el-table-column label="操作" width="90" fixed="right">
+      <el-table-column label="操作" width="140" fixed="right">
         <template #default="{ row }">
           <el-button size="small" type="primary" link @click="openPreview(row)">预览</el-button>
+          <el-button size="small" type="success" link @click="download(row)">下载</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -188,6 +189,25 @@ function onSizeChange(s) {
 function openPreview(row) {
   previewFile.value = row
   previewVisible.value = true
+}
+
+async function download(row) {
+  try {
+    const blob = await client.get(`/files/${row.id}/download`, {
+      responseType: 'blob',
+    })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = row.filename
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  } catch (err) {
+    const msg = err.response?.data?.error || '下载失败，请检查冷区硬盘状态'
+    ElMessage.error(msg)
+  }
 }
 
 onMounted(load)
