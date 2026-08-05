@@ -7,6 +7,7 @@ from pathlib import Path
 
 from ..config import Config
 from ..database import Database
+from ..indexer.text_extractor import extract_text
 from ..repositories import FileIndexRepository, SnapshotRepository, TaskRepository
 from .filtering import FilterSpec
 
@@ -142,7 +143,7 @@ class BackupEngine:
         digest = md5_file(src)
         cache_path = self.config.ssd_cache_dir / f"{snapshot_id}-{rel.name}.gz"
         write_gzip_copy(src, cache_path, rate_limit_bytes_per_sec)
-        self.files.create(
+        file_id = self.files.create(
             snapshot_id=snapshot_id,
             rel_path=str(rel),
             file_size=st.st_size,
@@ -152,3 +153,6 @@ class BackupEngine:
             hdd_source_path=str(hdd_path),
             filename=rel.name,
         )
+        body = extract_text(cache_path, rel.name)
+        if body:
+            self.files.update_text(file_id, body=body, ai_text="")

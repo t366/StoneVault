@@ -28,10 +28,38 @@
       </el-form-item>
     </el-form>
 
+    <el-form inline class="filter-form" @submit.prevent="load">
+      <el-form-item label="内容搜索">
+        <el-input
+          v-model="contentQ"
+          placeholder="搜索文档正文 / OCR 识别文本（至少 3 个字符）"
+          clearable
+          style="width: 360px"
+          @keyup.enter="load"
+          @clear="load"
+        />
+      </el-form-item>
+      <el-form-item>
+        <el-button type="success" :icon="Document" @click="load">全文检索</el-button>
+      </el-form-item>
+    </el-form>
+
     <el-table :data="items" v-loading="loading" stripe>
       <el-table-column prop="id" label="ID" width="70" />
-      <el-table-column prop="filename" label="文件名" min-width="160" show-overflow-tooltip />
+      <el-table-column label="文件名" min-width="160" show-overflow-tooltip>
+        <template #default="{ row }">
+          <span v-if="searchMode && row.hl_filename" v-html="row.hl_filename" />
+          <span v-else>{{ row.filename }}</span>
+        </template>
+      </el-table-column>
       <el-table-column prop="rel_path" label="相对路径" min-width="200" show-overflow-tooltip />
+      <el-table-column v-if="searchMode" label="内容命中" min-width="260">
+        <template #default="{ row }">
+          <span v-if="row.hl_body" class="hit" v-html="row.hl_body" />
+          <span v-else-if="row.hl_ai" class="hit" v-html="row.hl_ai" />
+          <span v-else class="muted">—</span>
+        </template>
+      </el-table-column>
       <el-table-column prop="file_size" label="大小" width="110">
         <template #default="{ row }">{{ formatBytes(row.file_size) }}</template>
       </el-table-column>
@@ -64,7 +92,7 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Search, Refresh } from '@element-plus/icons-vue'
+import { Search, Refresh, Document } from '@element-plus/icons-vue'
 import client from '../api'
 import PreviewDialog from '../components/PreviewDialog.vue'
 
@@ -76,6 +104,8 @@ const loading = ref(false)
 const timeRange = ref(null)
 const previewVisible = ref(false)
 const previewFile = ref(null)
+const contentQ = ref('')
+const searchMode = ref(false)
 
 const filters = reactive({
   q: '',
@@ -99,21 +129,32 @@ function formatBytes(bytes) {
 async function load() {
   loading.value = true
   try {
-    const params = {
-      page: page.value,
-      page_size: pageSize.value,
-      q: filters.q || undefined,
-      ext: filters.ext || undefined,
-      size_min: filters.size_min ?? undefined,
-      size_max: filters.size_max ?? undefined,
+    const q = (contentQ.value || '').trim()
+    if (q) {
+      searchMode.value = true
+      const data = await client.get('/files/search', {
+        params: { q, page: page.value, page_size: pageSize.value },
+      })
+      items.value = data.items
+      total.value = data.total
+    } else {
+      searchMode.value = false
+      const params = {
+        page: page.value,
+        page_size: pageSize.value,
+        q: filters.q || undefined,
+        ext: filters.ext || undefined,
+        size_min: filters.size_min ?? undefined,
+        size_max: filters.size_max ?? undefined,
+      }
+      if (timeRange.value && timeRange.value.length === 2) {
+        params.from = timeRange.value[0]
+        params.to = timeRange.value[1]
+      }
+      const data = await client.get('/files/', { params })
+      items.value = data.items
+      total.value = data.total
     }
-    if (timeRange.value && timeRange.value.length === 2) {
-      params.from = timeRange.value[0]
-      params.to = timeRange.value[1]
-    }
-    const data = await client.get('/files/', { params })
-    items.value = data.items
-    total.value = data.total
   } catch (err) {
     ElMessage.error('查询失败')
   } finally {
@@ -127,6 +168,8 @@ function reset() {
   filters.size_min = null
   filters.size_max = null
   timeRange.value = null
+  contentQ.value = ''
+  searchMode.value = false
   page.value = 1
   load()
 }
@@ -160,6 +203,18 @@ onMounted(load)
 .gap {
   margin: 0 8px;
   color: #909399;
+}
+.hit {
+  color: var(--el-text-color-regular);
+}
+.hit :deep(mark) {
+  background: #ffe58f;
+  color: #ad6800;
+  padding: 0 1px;
+  border-radius: 2px;
+}
+.muted {
+  color: #c0c4cc;
 }
 .pager {
   margin-top: 14px;
