@@ -21,6 +21,9 @@ class Config:
     )
     WAKE_TIMEOUT_SECONDS: int = int(os.environ.get("STONEVAULT_WAKE_TIMEOUT", "30"))
     WAKE_DEBOUNCE_SECONDS: int = int(os.environ.get("STONEVAULT_WAKE_DEBOUNCE", "10"))
+    BACKUP_RATE_LIMIT: int = int(os.environ.get("STONEVAULT_BACKUP_RATE", "0"))
+    SCHEDULE_TIMEZONE: str = os.environ.get("STONEVAULT_SCHEDULE_TZ", "Asia/Shanghai")
+    TASK_INTERLEAVE_SECONDS: int = int(os.environ.get("STONEVAULT_TASK_INTERLEAVE", "30"))
 
     db_path: Path = field(init=False)
     ssd_cache_dir: Path = field(init=False)

@@ -1,6 +1,7 @@
 import gzip
 import hashlib
 import shutil
+import time
 from datetime import datetime
 from pathlib import Path
 
@@ -8,6 +9,8 @@ from ..config import Config
 from ..database import Database
 from ..repositories import FileIndexRepository, SnapshotRepository, TaskRepository
 from .filtering import FilterSpec
+
+_COPY_CHUNK = 64 * 1024
 
 
 def md5_file(path: Path, chunk_size: int = 1 << 20) -> str:
@@ -18,15 +21,44 @@ def md5_file(path: Path, chunk_size: int = 1 << 20) -> str:
     return digest.hexdigest()
 
 
-def copy_file(src: Path, dst: Path) -> None:
-    dst.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copyfile(src, dst)
+def _throttle(total_bytes: int, rate_limit: int, started: float) -> None:
+    if rate_limit <= 0:
+        return
+    expected = total_bytes / rate_limit
+    elapsed = time.monotonic() - started
+    if expected > elapsed:
+        time.sleep(expected - elapsed)
 
 
-def write_gzip_copy(src: Path, dst: Path) -> None:
+def copy_file(src: Path, dst: Path, rate_limit_bytes_per_sec: int = 0) -> None:
     dst.parent.mkdir(parents=True, exist_ok=True)
+    if rate_limit_bytes_per_sec <= 0:
+        shutil.copyfile(src, dst)
+        return
+    started = time.monotonic()
+    written = 0
+    with src.open("rb") as fin, dst.open("wb") as fout:
+        while True:
+            chunk = fin.read(_COPY_CHUNK)
+            if not chunk:
+                break
+            fout.write(chunk)
+            written += len(chunk)
+            _throttle(written, rate_limit_bytes_per_sec, started)
+
+
+def write_gzip_copy(src: Path, dst: Path, rate_limit_bytes_per_sec: int = 0) -> None:
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    started = time.monotonic()
+    written = 0
     with src.open("rb") as fin, gzip.open(dst, "wb") as fout:
-        shutil.copyfileobj(fin, fout)
+        while True:
+            chunk = fin.read(_COPY_CHUNK)
+            if not chunk:
+                break
+            fout.write(chunk)
+            written += len(chunk)
+            _throttle(written, rate_limit_bytes_per_sec, started)
 
 
 class BackupEngine:
@@ -37,7 +69,7 @@ class BackupEngine:
         self.snapshots = SnapshotRepository(db)
         self.files = FileIndexRepository(db)
 
-    def run_task(self, task_id: int) -> dict:
+    def run_task(self, task_id: int, rate_limit_bytes_per_sec: int = 0) -> dict:
         task = self.tasks.get(task_id)
         if task is None:
             raise ValueError(f"task {task_id} not found")
@@ -62,7 +94,9 @@ class BackupEngine:
                     continue
                 file_count += 1
                 total_bytes += path.stat().st_size
-                self._backup_file(snapshot_id, rel, path, hdd_base)
+                self._backup_file(
+                    snapshot_id, rel, path, hdd_base, rate_limit_bytes_per_sec
+                )
             self.snapshots.finish(
                 snapshot_id,
                 status="success",
@@ -94,13 +128,20 @@ class BackupEngine:
             return False
         return prev["md5"] == md5_file(path)
 
-    def _backup_file(self, snapshot_id: int, rel: Path, src: Path, hdd_base: Path) -> None:
+    def _backup_file(
+        self,
+        snapshot_id: int,
+        rel: Path,
+        src: Path,
+        hdd_base: Path,
+        rate_limit_bytes_per_sec: int = 0,
+    ) -> None:
         st = src.stat()
         hdd_path = hdd_base / rel
-        copy_file(src, hdd_path)
+        copy_file(src, hdd_path, rate_limit_bytes_per_sec)
         digest = md5_file(src)
         cache_path = self.config.ssd_cache_dir / f"{snapshot_id}-{rel.name}.gz"
-        write_gzip_copy(src, cache_path)
+        write_gzip_copy(src, cache_path, rate_limit_bytes_per_sec)
         self.files.create(
             snapshot_id=snapshot_id,
             rel_path=str(rel),

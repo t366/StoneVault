@@ -2,12 +2,16 @@ from sanic import Sanic
 from sanic.response import json
 
 from .api.auth import create_auth_bp
+from .api.tasks import create_tasks_bp
 from .auth.middleware import register_auth_middleware
 from .auth.passwords import hash_password
 from .auth.sessions import SessionManager
+from .backup_engine.engine import BackupEngine
 from .config import Config, default_config
 from .database import Database
 from .repositories import AdminUserRepository
+from .scheduler.locks import TaskExecutionManager
+from .scheduler.scheduler import TaskScheduler
 
 
 def create_app(
@@ -36,6 +40,13 @@ def create_app(
     sessions = session_manager or SessionManager(cfg.SECRET_KEY, cfg.SESSION_TTL_SECONDS)
     app.ctx.sessions = sessions
 
+    engine = BackupEngine(database, cfg)
+    manager = TaskExecutionManager(database, cfg.TASK_INTERLEAVE_SECONDS)
+    scheduler = TaskScheduler(database, engine, manager, cfg)
+    app.ctx.engine = engine
+    app.ctx.manager = manager
+    app.ctx.scheduler = scheduler
+
     @app.get("/api/health")
     async def health(request):
         return json(
@@ -46,7 +57,19 @@ def create_app(
             }
         )
 
+    @app.listener("after_server_start")
+    async def start_scheduler(app_instance, loop):
+        scheduler.resync()
+        scheduler.start()
+
+    @app.listener("before_server_stop")
+    async def stop_scheduler(app_instance, loop):
+        scheduler.shutdown()
+
     app.blueprint(create_auth_bp(database, sessions))
+    app.blueprint(
+        create_tasks_bp(database, engine, manager, scheduler, cfg)
+    )
     register_auth_middleware(app, sessions)
     return app
 
