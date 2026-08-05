@@ -39,6 +39,11 @@
       <el-table-column prop="content_type" label="类型" min-width="140">
         <template #default="{ row }">{{ row.content_type || '—' }}</template>
       </el-table-column>
+      <el-table-column label="操作" width="90" fixed="right">
+        <template #default="{ row }">
+          <el-button size="small" type="primary" link @click="openPreview(row)">预览</el-button>
+        </template>
+      </el-table-column>
     </el-table>
 
     <el-pagination
@@ -51,6 +56,8 @@
       @current-change="onPageChange"
       @size-change="onSizeChange"
     />
+
+    <PreviewDialog v-model="previewVisible" :file="previewFile" />
   </div>
 </template>
 
@@ -59,6 +66,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Search, Refresh } from '@element-plus/icons-vue'
 import client from '../api'
+import PreviewDialog from '../components/PreviewDialog.vue'
 
 const items = ref([])
 const total = ref(0)
@@ -66,6 +74,8 @@ const page = ref(1)
 const pageSize = ref(20)
 const loading = ref(false)
 const timeRange = ref(null)
+const previewVisible = ref(false)
+const previewFile = ref(null)
 
 const filters = reactive({
   q: '',
@@ -130,6 +140,11 @@ function onSizeChange(s) {
   pageSize.value = s
   page.value = 1
   load()
+}
+
+function openPreview(row) {
+  previewFile.value = row
+  previewVisible.value = true
 }
 
 onMounted(load)

@@ -3,6 +3,7 @@ from sanic.response import json
 
 from .api.auth import create_auth_bp
 from .api.files import create_files_bp
+from .api.preview import create_preview_bp
 from .api.tasks import create_tasks_bp
 from .auth.middleware import register_auth_middleware
 from .auth.passwords import hash_password
@@ -72,6 +73,7 @@ def create_app(
         create_tasks_bp(database, engine, manager, scheduler, cfg)
     )
     app.blueprint(create_files_bp(database))
+    app.blueprint(create_preview_bp(database, cfg))
     register_auth_middleware(app, sessions)
     return app
 
